@@ -2,7 +2,7 @@
 Ari's Test Bot for learning the Discord API
 """
 import discord                     # Discord API
-from replit import db ; import os  # For Replit
+from replit import db; import os   # For Replit
 import requests, json              # For get_quote()
 import random, math, re, sys       # General use modules
 import time
@@ -17,7 +17,6 @@ is_replit = True
 if db is None: db = {}; is_replit = False
 
 
-
 """FUNCTIONS"""
 def get_quote():  # Returns a random quote from ZenQuotes
     response = requests.get("https://zenquotes.io/api/random")  # snag a quote from this api, it will be in json
@@ -26,18 +25,17 @@ def get_quote():  # Returns a random quote from ZenQuotes
     return quote
 
 def get_random_curse_word():
-    try:
-        # print(db["curse_words"]); print(db) ;print(db["curse_words"].keys())
-        return random.choice(list(db["curse_words"].keys()))
-    except KeyError:
-        return "I don't know any curse words!"
+    if Curse.count > 0:
+        return random.choice(Curse.word_strings)
+    return "I don't know any curse words!"
 
 # sets values in database (am I accidentally reinventing a class in this dict lol? bc this is def a setter)
-def update_database(list_name, entry, check_by=None, is_dict=False, is_non_iterable=False):
+def update_database(key_name, entry, check_by=None, is_dict=False, is_non_iterable=False): #fuckin spaghetti
     """ Checks if 'target_list' exists yet in the db, and is a list, if it doesn't exist, adds it as a list containing
         'entry' only. Otherwise, checks if 'entry' is already in the list, (or if the corresponding index
          of it is). If it is not, 'entry' is appended.
-    :param list_name: key to the list in the db to be updated, expected string, but only must reference a list
+    :param is_non_iterable: To be implemented
+    :param key_name: key to the list in the db to be updated, expected string, but only must reference a list
     :param entry: entry to append to the list in the db
     :param check_by: optional param, if given, entry will be treated as existing only if the check_by index matched db,
                      meant for entries that are tuples or lists themselves.
@@ -46,49 +44,60 @@ def update_database(list_name, entry, check_by=None, is_dict=False, is_non_itera
     :return: False for if the database was not updated, or an error was found before it could be.
              True if it was, and either a new list was added to the db, or an entry was appended to the list in the db.
     """  #                                                                                                              (This description may be too long, but this is still complicated to me, so It seems like itd be helpful until I'm more experienced)
-    if list_name in db.keys():
-        temp_list = db[list_name]
+    if key_name in db.keys():
+        if is_non_iterable:
+            db[key_name] = entry
+        temp_list = db[key_name]
         if is_dict is False and type(temp_list) != list:
-            print("Could not update value! Target value is not a list; returning False")
+            # print("Could not update value! Target value is not a list; returning False")
             return False
         if is_dict:
             check = list(entry.keys())[0]
             check_list = list(temp_list.keys())
         elif check_by is not None:
             try:
-                print(f"(True: comparing by Index {check_by}) ", end='')
+                # print(f"(True: comparing by Index {check_by}) ", end='')
                 check, check_list = entry[check_by], [value[check_by] for value in temp_list]
             except IndexError:
-                print("\nINDEX OUT OF RANGE ERROR, revise check_by or db/entry values\n")
+                # print("\nINDEX OUT OF RANGE ERROR, revise check_by or db/entry values\n")
                 return False
         else:
-            print("(False: comparing by Whole Tuple) ", end='')
+            # print("(False: comparing by Whole Tuple) ", end='')
             check, check_list = entry, temp_list
-        print(f"check is:'{check}' and check_list is:'{check_list}'")
+        # print(f"check is:'{check}' and check_list is:'{check_list}'")
         if check not in check_list:
             if is_dict:
-                db[list_name][list(entry.keys())[0]] = list(entry.values())[0]
-                print(f"Added K/V pair:'{entry}' to '{list_name}'; returning True")
+                db[key_name][list(entry.keys())[0]] = list(entry.values())[0]
+                print(f"Added K/V pair:'{entry}' to '{key_name}'; returning True")
                 return True
             temp_list.append(entry)
-            db[list_name] = temp_list
-            print(db)
-            print(f"Added Entry:'{entry}' entry to '{list_name}'; returning True")
+            db[key_name] = temp_list
+            # print(db)
+            # print(f"Added Entry:'{entry}' entry to '{key_name}'; returning True")
             return True
         else:
-            print(f"Entry:'{entry}' is already in '{list_name}'; returning False")
+            # print(f"Entry:'{entry}' is already in '{key_name}'; returning False")
             return False
     else:
         if is_dict:
-            db[list_name] = {}
-            db[list_name] = entry
+            db[key_name] = {}
+            db[key_name] = entry
         else:
-            db[list_name] = []
-            db[list_name].append(entry)
-        print(db)
-        print(f"Added New Key/Value Pair to db: key is '{list_name}' and value is a list/dict containing a single"
+            db[key_name] = []
+            db[key_name].append(entry)
+        # print(db)
+        print(f"Added New Key/Value Pair to db: key is '{key_name}' and value is a list/dict containing a single"
               f" entry '{entry}'; returning True")
         return True
+
+
+def get_from_db(key):
+    try:
+        value = db[key]
+        return value
+    except KeyError:
+        return None
+
 
 def get_current_memory():
     if len(list(db.keys())) == 0:
@@ -99,9 +108,15 @@ def get_current_memory():
     return output
 
 
-def remove_from_database(target_list, index): #                                                                         Todo: finish implementing this
-    temp_list = db[target_list]
-    if len(temp_list) > index:
+def remove_from_database(target_list, index=None): #                                                                         Todo: finish implementing this
+    try:
+        temp_list = db[target_list]
+    except KeyError:
+        return False
+    if index is None:
+        del db[target_list]
+        print(f"Removing List:'{temp_list[index]}' from db")
+    elif len(temp_list) > index:
         print(f"Removing Item:'{temp_list[index]}' from list '{target_list}'")
         del temp_list[index]
         db[target_list] = temp_list
@@ -111,6 +126,126 @@ def remove_from_database(target_list, index): #                                 
         return False
 
 
+def print_board(coords):
+    print(coords)
+    tl, tm, tr, ml, mm, mr, bl, bm, br = coords
+    print(tl, tm, tr, ml, mm, mr, bl, bm, br)
+    return f"```fix\n" + \
+           f" {tr} | {tm}  | {tl} \n" + \
+           f"————————————\n" + \
+           f" {mr} | {mm}  | {ml} \n" + \
+           f"————————————\n" + \
+           f" {br} |  {bm} | {bl} \n" + \
+           f"```"
+
+
+"""CLASSES"""
+class TicTac:
+    leaderboard = []
+
+    def __init__(self):
+        self._symbol = None
+        self._choose_symbol = True
+        self._allow_play = False
+        self._coords = None
+
+    @property
+    def choose_symbol(self):
+        return self._choose_symbol
+
+    def set_symbols(self, player_symbol, ai_symbol):
+        print(player_symbol, ai_symbol)
+        self._symbol = (player_symbol, ai_symbol)
+        self._choose_symbol = False
+        self._coords = [" " for _ in range(9)]
+        print(self._coords)
+        self._allow_play = True
+
+    def get_board(self):
+        if self._coords is not None:
+            return self._coords
+        raise IndexError
+
+    def game_defined(self):
+        return self._allow_play
+
+    def update_board(self, play, p=0):
+        [TL, TM, TR, ML, MM, MR, BL, BM, BR] = self._coords
+        if play == "TR":
+            TR = self._symbol[p]
+        elif play == "TM":
+            TM = self._symbol[p]
+        elif play == "TL":
+            TL = self._symbol[p]
+        elif play == "MR":
+            MR = self._symbol[p]
+        elif play == "MM":
+            MM = self._symbol[p]
+        elif play == "ML":
+            ML = self._symbol[p]
+        elif play == "BR":
+            BR = self._symbol[p]
+        elif play == "BM":
+            BM = self._symbol[p]
+        elif play == "BL":
+            BL = self._symbol[p]
+        else:
+            raise ValueError
+        self._coords = [TL, TM, TR, ML, MM, MR, BL, BM, BR]
+        # print([TL, TM, TR, ML, MM, MR, BL, BM, BR])
+        # print(self._coords)
+
+    def ai_turn(self, strategy=None):
+        if strategy == 0 or None:
+            print("Random Placement strategy selected")
+        elif strategy == 1:
+            print("Random Placement - Rule Breaking 1 selected")
+            play = random.choice(["TL", "TM", "TR", "ML", "MM", "MR", "BL", "BM", "BR"])
+            self.update_board(play, 1)
+            return play
+
+
+
+
+
+class Curse:
+    words_known = []
+    word_strings = []
+    leaderboard = {}
+    count = 0
+
+    def __init__(self, word, teacher=None):
+        if type(word) is str:
+            self._word = word
+            Curse.word_strings.append(word)
+        else:
+            raise ValueError
+        print(type(teacher))
+        self._teacher = teacher
+        if teacher.name not in Curse.leaderboard:
+            Curse.leaderboard[teacher.name] = 1
+        else:
+            Curse.leaderboard[teacher.name] += 1
+
+        Curse.words_known.append(self)
+        Curse.count += 1
+
+        self.is_phrase = None #TODO: Implement these
+        self.is_four_letter_word = None
+        self.is_adjective = None
+
+    def __str__(self):
+        return self._word
+
+    @property
+    def word(self):
+        return self._word
+
+    @property
+    def teacher(self, mention=True):
+        if mention:
+            return self._teacher.mention
+        return self._teacher.name
 
 
 # incomplete argument extractor for user commands, might finish if it seems like it could be useful
@@ -120,16 +255,19 @@ def remove_from_database(target_list, index): #                                 
 
 @client.event
 async def on_ready():  # Runs after startup
-    if is_replit: print("Detected running on Replit, db entries will be saved to Replit database")
-    else:         print("Detected running outside of Replit, db is a temporary variable")
+    if is_replit:
+        print("Detected running on Replit, db entries will be saved to Replit database")
+    else:
+        print("Detected running outside of Replit, db is a temporary variable")
     print(f"Logged in as {client.user}")
+    client.allowed_mentions = discord.AllowedMentions()
 
 
 @client.event  # Event loop for every message the bot sees, idk how this works or what this decorator is for
 async def on_message(message):
     # Ensure that the bot does nothing for its own messages
     if message.author == client.user:
-        return None
+        return
 
     # Shorthand variable assignments
     msg_text = message.content
@@ -138,6 +276,10 @@ async def on_message(message):
     greetings = ["Hello", "What Up", "hello", "HI", "hi", "Hi" "Salutations", "How do you do fellow Human?", "howdy",
                  "heyo", "Howdy", "I am not a Bivalve Mollusk, er, I mean Hello!", "hey there", "Parsnips", "'sup",
                  "sup"]
+
+    # Message Author Stuff
+    if update_database("Server_Members", message.author):
+        print(f"Updated DB of Server Members with {message.author}")
 
     # StartsWith Section:
 
@@ -150,10 +292,10 @@ async def on_message(message):
                                     "!get_quote": get_quote(),
                                     "!curse": get_random_curse_word(),
                                     "What do you know?": get_current_memory(),
-                                    "!is_online" : f"{client.user} Status: Active",
-                                    "/throw @Aríel #5310":"/throw @Unillama #5116",
+                                    "!is_online": f"{client.user} Status: Active",
+                                    "/throw @Aríel #5310": "/throw @Unillama#5116",
                                     "!collect": "/collect",
-                                    "!throw John": "/throw @Unillama #5116"
+                                    "!throw John": "/throw @Unillama#5116"
                                     }
     for phrase in simple_startswith_dictionary.keys():
         if msg_text.startswith(phrase):
@@ -167,8 +309,35 @@ async def on_message(message):
     # Says a random greeting when it sees a greeting
     if any(msg_text.startswith(word) for word in greetings):
         await send(random.choice(greetings))
+        return
 
-    # Commands which return more than just a message:
+    regex_dict = {#"Template": (r"Regex Pattern" , "Reply String" , re.KEY | re.WORD | re.ARGUMENTS),
+                   "Greetings": (r"hi", random.choice(greetings), re.MULTILINE | re.IGNORECASE),
+                   "Marco": (r"[Mm]arco\w?", "Polo"),
+                   "Marcus": (r"\w*[Mm]arcus\w*", "Polonius!")}
+    for pattern in list(regex_dict.values()):
+        regex, reply, *arguments = pattern
+        if re.match(regex, msg_text, *arguments):
+            await send(pattern[1]) # TODO: make regex optionally store a tuple of patterns
+
+    # Sample Regex Code
+    # regex = r"hi"
+    # test_str = ("hi\n"
+    #             "hi\n"
+    #             "Hi\n"
+    #             "Hippo\n"
+    #             "hippo\n"
+    #             "oh hi there\n"
+    #             "hi-lo\n"
+    #             "high\n")
+    # matches = re.finditer(regex, test_str, re.MULTILINE | re.IGNORECASE)
+    # for matchNum, match in enumerate(matches, start=1):
+    #     print(f"Match {matchNum} was found at {match.start()}-{match.end()}: {match.group()}")
+    #     for groupNum in range(0, len(match.groups())):
+    #         groupNum = groupNum + 1
+    #         print(f"Group {groupNum} found at {match.start(groupNum)}-{match.end(groupNum)}: {match.group(groupNum)}")
+
+    """Commands which return more than just a message:"""
     # (These can't be packed into functions because I don't understand how 'await' works)
 
     if msg_text.startswith("!press_alt_f4_to_win_lol"):
@@ -182,8 +351,7 @@ async def on_message(message):
         try:
             param1, param2 = msg_text[6:].split("d", 2)  # Take everything after /roll and split on d, unpack to params
             if param1 == '': param1 = 1                  # Set param1 to a value of 1 if not given by the user
-
-            roll_list = [] #                                                                                            (The rest of this block could prolly be its own function, but eh)
+            roll_list = []
             for i in range(int(param1)):
                 roll = random.randint(1, int(param2))
                 roll_list.append(roll)
@@ -195,37 +363,83 @@ async def on_message(message):
 
     # Lets you be that one cool aunt/uncle your parents always hated
     if msg_text.startswith("!teach_curse_word "):
-        """ Takes a word from the user and saves it to db as a tuple which also contains the first user to submit 
-            the entry to the database as the second element, gives relevant messages depending on if it exists already. 
-            Calls update_database() with the key "curse_words" and a check_by of 0 """
-        curse_word = str(msg_text[18:])                 # Extract Argument                                              (maybe this could be done with split or a variable to make refactoring easier, but this seems like less effort)
-        word_teacher_dict = {curse_word: str(message.author)}  # Then pack it into a dict to save it with the user name       (would saving as a dict be better? Yes, I think so?? Nope it isn't actually, but I don't feel like putting it back)
-        print(f"Curse Word is:{curse_word}, and is packed into dictionary {word_teacher_dict}")
-        if curse_word == "" or None:
-            print("No argument given")
+        word = str(msg_text[18:])
+        if word == "" or None:
             await send(">>>No word given (Format is /teach_curse_word [word])")
-            success = None
+            return
+        if update_database("CURSES", {word: Curse(word, message.author)}, None, True):                                  # retooled this into a class, maybe should be a subclass
+            await send(f'"{word}"? Oh I\'ve never heard that one before, that seems like a fun word')
         else:
-            success = update_database("curse_words", word_teacher_dict, None, True)
-            print(f"Was database updated ({success})")
-        if success:  # update_db call
-            print("New Word")
-            await send(f'"{curse_word}"? Oh I\'ve never heard that one before, that seems like a fun word')
-        elif success is None:
-            print("Success is None")
-        else:
-            print("Heard Before")
-            teacher = db["curse_words"][curse_word]
-            await send(f"Oh {curse_word}? I've heard that one before, @{teacher} , taught me that.")
+            await send(f"Oh {word}? I've heard that one before, {db['CURSES'][word].teacher} , taught me that.")
+
+    if msg_text.startswith("!tic_tac_toe"):
+
+        if len(msg_text) == 12:
+            await send("Tic_Tac_Toe commands:\n"
+                       "`!tic_tac_toe new` - starts a new game (ends current game!)\n"
+                       "`!tic_tac_toe X` - Choose Xs\n"
+                       "`!tic_tax_toe O` - Choose Os\n"
+                       "`!tic_tac_toe play` [Location] - Pick where to play on your turn, format is [T|M|B][R|M|L] ie TR "
+                       "for Top-Right, MM for Middle-Middle, BL for Bottom-Left, etc.\n"
+                       "")
+            return
+
+        argument1 = msg_text.split(" ")[1]
+        print(argument1)
+
+        if argument1 == "new":
+            db["TicTac"] = TicTac()
+            await send("`X's or O's?`")
+            return
+        try:
+            game = db["TicTac"]
+        except KeyError:
+            return
+
+        if argument1 == "X" and game.choose_symbol:
+            game.set_symbols("X", "O")
+            await send(">>> Chose X's")
+            await send(print_board(game.get_board()), delete_after=120)
+            await send(">>> Begin Game, player has first move. (Use `!tic_tac_toe play`)")
+            return
+        elif argument1 == "O" and game.choose_symbol:
+            game.set_symbols("O", "X")
+            await send(">>> Chose O's")
+            await send(print_board(game.get_board()), delete_after=120)
+            await send(">>> Begin Game, player has first move. (Use `!tic_tac_toe play`)")
+            return
+        elif game.choose_symbol:
+            await send("Invalid symbol")
+            return
+
+        if argument1 == "play":
+            if game.game_defined is False:
+                await send("Game has not been started yet!")
+                return
+            try:
+                play = msg_text[18:]
+            except IndexError:
+                await send("No location given for play")
+                return
+            try:
+                game.update_board(play)
+            except ValueError:
+                await send("Invalid Play")
+                return
+            await send(f"Player Chose: {play}")
+            await send(print_board(game.get_board()), delete_after=120)
+            await send(f"AI Chose: {game.ai_turn(1)}")
+            await send(print_board(game.get_board()), delete_after=120)
+
+
+
+
 
 @client.event
-async def on_socket_raw_receive(msg):
-  """"""
-
-@client.event
-async def run():
-    print("running")
-
+async def on_typing(channel, user, when):
+    if update_database("Server_Members", user):
+        print(f"Updated Database with {user}")
+    return
 
 
 """ 
@@ -239,7 +453,7 @@ Working Theory for Replit db: data is saved even after a restart
 """
 
 
-def main(): #                                                                                                           todo: try uploading this to github or using git in replit so i can learn how github works, and also share with Lycos
+def main():
     if os.getenv("TOKEN") is not None:  # use environment variable if running on Replit else use TOKEN constant
         keep_alive()  # pokes the bot every hour
         client.run(os.getenv("TOKEN"))
@@ -249,7 +463,6 @@ def main(): #                                                                   
     else:
         print("ERROR No token given! \n Quitting Program")
         sys.exit()
-
 
 
 if __name__ == '__main__':
